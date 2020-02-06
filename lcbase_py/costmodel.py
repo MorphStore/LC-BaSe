@@ -27,6 +27,11 @@ COSTTYPE_LOG_DD = 3
 CONTEXT_STAND_ALONE = 1
 CONTEXT_IN_CASC = 2
 
+_ERROR_WORDS = {
+    CONTEXT_STAND_ALONE: "stand-alone use",
+    CONTEXT_IN_CASC: "use in cascades",
+}
+
 class CostModel:
     """
     A cost model for lightweight integer compression algorithms, including
@@ -67,10 +72,13 @@ class CostModel:
         elif isinstance(al, algo.CascadeAlgo):
             return self._costCasc(al, dfDC)
         else:
-            raise RuntimeError("unsupported algorithm class")
+            raise RuntimeError(
+                    "unsupported algorithm class: {}".format(al.__class__)
+            )
     
     def _costPhy(self, al, dfDC, context):
         bwProfs = self.bwProfs[context]
+        self._checkProfileAvailable(al, bwProfs, context, "bit width")
         f = self._factor(al._mode, dfDC)
         sIsSorted = dfDC[ColsDC.isSorted]
         dfBwHistSorted = getBwHist(dfDC[sIsSorted])
@@ -92,12 +100,16 @@ class CostModel:
         ).reindex(index=dfDC.index)
 
     def _costLogDI(self, al, dfDC, context):
+        diProfs = self.diProfs[context]
+        self._checkProfileAvailable(al, diProfs, context, "data independent")
         f = self._factor(al._mode, dfDC)
-        return pd.Series(f * self.diProfs[context][al], index=dfDC.index)
+        return pd.Series(f * diProfs[al], index=dfDC.index)
 
     def _costLogDD(self, al, dfDC, context):
         res = []
-        sDDProf = self.ddProfs[context][al]
+        ddProfs = self.ddProfs[context]
+        self._checkProfileAvailable(al, ddProfs, context, "data dependent")
+        sDDProf = ddProfs[al]
         index = sDDProf.index
         isConstantEnd = True
         for idx, row in dfDC.iterrows():
@@ -227,6 +239,16 @@ class CostModel:
         elif mode in [algo.MODE_COMPR, algo.MODE_DECOMPR, algo.MODE_AGG]:
             return dfDC[ColsDC.count] / self.countValuesCalib
 
+    def _checkProfileAvailable(self, al, profs, context, profileName):
+        if al not in profs:
+            raise RuntimeError(
+                    "there is no {} profile for algorithm '{}' "
+                    "for {}".format(
+                            profileName,
+                            al.getInternalName(),
+                            _ERROR_WORDS[context]
+                    )
+            )
 
 #******************************************************************************
 # Algorithm selection
