@@ -146,12 +146,19 @@ class CostModel:
         modePhy = algo.MODE_DECOMPR \
             if (al._mode == algo.MODE_AGG) \
             else al._mode
+            
+        # For the compression rate, there are no separate profiles for the use
+        # of an algorithm in a cascade, so we employ the profiles for
+        # stand-alone use.
+        context = CONTEXT_STAND_ALONE \
+            if al._mode == algo.MODE_FORMAT \
+            else CONTEXT_IN_CASC
         
         costTypeLog = self.costTypes[logAlgo.changeMode(None)]
         if costTypeLog == COSTTYPE_LOG_DI:
-            sCostLog = self._costLogDI(logAlgo, dfDC, CONTEXT_IN_CASC)
+            sCostLog = self._costLogDI(logAlgo, dfDC, context)
         elif costTypeLog == COSTTYPE_LOG_DD:
-            sCostLog = self._costLogDD(logAlgo, dfDC, CONTEXT_IN_CASC)
+            sCostLog = self._costLogDD(logAlgo, dfDC, context)
         else:
             raise RuntimeError(
                     "invalid cost type for logical side of cascade: '{}'"
@@ -167,7 +174,7 @@ class CostModel:
         sCostPhy = self._costPhy(
                 phyAlgo.changeMode(modePhy),
                 self._changeDC(logAlgo, dfDC),
-                CONTEXT_IN_CASC
+                context
         )
 
         if al._mode == algo.MODE_FORMAT:
