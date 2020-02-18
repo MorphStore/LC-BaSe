@@ -122,7 +122,10 @@ def mixtureMaskedVByte(dfBwHist):
 # *****************************************************************************
 
 def _bitwidth(n):
-    return 1 if n == 0 else int(math.ceil(math.log2(n + 1)))
+    # This formula does not work for too large numbers (of more then 48 bits or
+    # so), because, due to the limited precision, log2(n+1) == log2(n), then.
+    # return 1 if n == 0 else int(math.ceil(math.log2(n + 1)))
+    return 1 if n == 0 else int(n).bit_length()
 
 def _minByBitwidth(bw):
     return 0 if bw == 1 else 2 ** (bw - 1)
