@@ -5,10 +5,12 @@ The core of the cost model for lightweight integer compression algorithms.
 import lcbase_py.algo as algo
 
 import pandas as pd
+import numpy as np
 
 import math
 
 from functools import partial
+
 
 #******************************************************************************
 # Bit width of the uncompressed data
@@ -60,6 +62,14 @@ class CostModel:
 
     # Note that the objective is encoded as the mode of the Algo object.
     def cost(self, al, dfDC):
+        if al._mode is None:
+            raise RuntimeError(
+                    "the given compression algorithm has no mode"
+            )
+        if self.countValuesCalib == 0:
+            raise RuntimeError(
+                    "countValuesCalib is zero"
+            )
         if isinstance(al, algo.StandAloneAlgo):
             costType = self.costTypes[al.changeMode(None)]
             if costType == COSTTYPE_PHY:
@@ -79,7 +89,7 @@ class CostModel:
     
     def _costPhy(self, al, dfDC, context):
         bwProfs = self.bwProfs[context]
-        self._checkProfileAvailable(al, bwProfs, context, "bit width")
+        self._checkProfileNonEmptySeries(al, bwProfs, context, "bit width")
         f = self._factor(al._mode, dfDC)
         adaptFunc = self.adaptFuncs[al.changeMode(None)]
         # TODO We should not use the name here. But a direct comparison to
@@ -117,14 +127,14 @@ class CostModel:
 
     def _costLogDI(self, al, dfDC, context):
         diProfs = self.diProfs[context]
-        self._checkProfileAvailable(al, diProfs, context, "data independent")
+        self._checkProfileScalar(al, diProfs, context, "data independent")
         f = self._factor(al._mode, dfDC)
         return pd.Series(f * diProfs[al], index=dfDC.index)
 
     def _costLogDD(self, al, dfDC, context):
         res = []
         ddProfs = self.ddProfs[context]
-        self._checkProfileAvailable(al, ddProfs, context, "data dependent")
+        self._checkProfileNonEmptySeries(al, ddProfs, context, "data dependent")
         sDDProf = ddProfs[al]
         index = sDDProf.index
         isConstantEnd = True
@@ -263,6 +273,42 @@ class CostModel:
                             profileName,
                             al.getInternalName(),
                             _ERROR_WORDS[context]
+                    )
+            )
+
+    def _checkProfileNonEmptySeries(self, al, profs, context, profileName):
+        self._checkProfileAvailable(al, profs, context, profileName)
+        prof = profs[al]
+        if not isinstance(prof, pd.Series):
+            raise RuntimeError(
+                    "the {} profile for algorithm '{}' for {} is expected to "
+                    "be a 'pandas.Series', but it is a '{}'".format(
+                            profileName,
+                            al.getInternalName(),
+                            _ERROR_WORDS[context],
+                            type(prof).__name__
+                    )
+            )
+        if not len(prof):
+            raise RuntimeError(
+                    "the {} profile for algorithm '{}' for {} is empty".format(
+                            profileName,
+                            al.getInternalName(),
+                            _ERROR_WORDS[context]
+                    )
+            )
+    
+    def _checkProfileScalar(self, al, profs, context, profileName):
+        self._checkProfileAvailable(al, profs, context, profileName)
+        prof = profs[al]
+        if not isinstance(prof, np.float64) and not isinstance(prof, int):
+            raise RuntimeError(
+                    "the {} profile for algorithm '{}' for {} is expected to "
+                    "be a 'numpy.float64', but it is a '{}'".format(
+                            profileName,
+                            al.getInternalName(),
+                            _ERROR_WORDS[context],
+                            type(prof).__name__
                     )
             )
 
