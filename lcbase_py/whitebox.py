@@ -29,15 +29,26 @@ def adaptFixed(dfBwHist, blockSize):
     return dfBwHist.dot(dfTriU) ** blockSize - \
         dfBwHist.dot(dfTriU2) ** blockSize
 
-def adaptMax(dfBwHist):
+def adaptMax(dfBwHist, granularity="bit"):
     newData = []
     for idx, row in dfBwHist.iterrows():
         for bw in reversed(range(1, cm.UNCOMPR_BW + 1)):
             if row[bw] > 0:
-                newRow = [0] * cm.UNCOMPR_BW
-                newRow[bw - 1] = 1
-                newData.append(newRow)
+                maxBw = bw
                 break
+        if granularity == "bit":
+            pass
+        elif granularity == "even":
+            maxBw = maxBw + maxBw % 2
+        elif granularity == "byte":
+            maxBw = maxBw + (8 - maxBw % 8)
+        elif granularity == "pot": # power of two
+            maxBw = 2 ** (maxBw - 1).bit_length() # only for maxBw >= 1
+        else:
+            raise RuntimeError("unsupported granularity")
+        newRow = [0] * cm.UNCOMPR_BW
+        newRow[maxBw - 1] = 1
+        newData.append(newRow)
     dfNew = pd.DataFrame(
             newData, columns=range(1, cm.UNCOMPR_BW + 1), index=dfBwHist.index
     )

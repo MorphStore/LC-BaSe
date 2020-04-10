@@ -8,6 +8,7 @@ import pandas as pd
 
 import math
 
+from functools import partial
 
 #******************************************************************************
 # Bit width of the uncompressed data
@@ -80,19 +81,34 @@ class CostModel:
         bwProfs = self.bwProfs[context]
         self._checkProfileAvailable(al, bwProfs, context, "bit width")
         f = self._factor(al._mode, dfDC)
-        sIsSorted = dfDC[ColsDC.isSorted]
-        dfBwHistSorted = getBwHist(dfDC[sIsSorted])
-        dfBwHistUnsorted = getBwHist(dfDC[~sIsSorted])
+        adaptFunc = self.adaptFuncs[al.changeMode(None)]
+        # TODO We should not use the name here. But a direct comparison to
+        # wb.adaptMax would cause an import cycle of the Python modules.
+        if isinstance(adaptFunc, partial) and adaptFunc.func.__name__ == "adaptMax":
+            dfBwHistAdapt = getBwHist(dfDC)
+            dfBwHistNoAdapt = pd.DataFrame(columns=dfBwHistAdapt.columns)
+        else:
+            sIsSorted = dfDC[ColsDC.isSorted]
+            if sIsSorted.dtype != bool:
+                raise RuntimeError(
+                        "column '{}' in the given data frame containing the data "
+                        "characteristics must be of dtype bool (did you forget to "
+                        "convert it after loading it from a file?)".format(
+                                ColsDC.isSorted
+                        )
+                )
+            dfBwHistNoAdapt = getBwHist(dfDC[sIsSorted])
+            dfBwHistAdapt = getBwHist(dfDC[~sIsSorted])
         # We calculate the cost separately for sorted and unsorted datasets.
         # In the end we reindex to restore the original order.
         return f * (
                 # Costs for the cases where the data is sorted.
-                dfBwHistSorted.dot(bwProfs[al])
+                dfBwHistNoAdapt.dot(bwProfs[al])
                 # Costs for the cases where the data is unsorted.
                 .append(
-                        self.adaptFuncs[al.changeMode(None)](dfBwHistUnsorted)
+                        adaptFunc(dfBwHistAdapt)
                         .dot(bwProfs[al]) + (
-                            self._penalty(al, dfBwHistUnsorted, context)
+                            self._penalty(al, dfBwHistAdapt, context)
                                 if al._mode != algo.MODE_FORMAT
                                 else 0
                         )
