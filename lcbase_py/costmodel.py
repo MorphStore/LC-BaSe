@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 
 import math
+import numbers
 
 from functools import partial
 
@@ -301,10 +302,10 @@ class CostModel:
     def _checkProfileScalar(self, al, profs, context, profileName):
         self._checkProfileAvailable(al, profs, context, profileName)
         prof = profs[al]
-        if not isinstance(prof, np.float64) and not isinstance(prof, int):
+        if not isinstance(prof, numbers.Number):
             raise RuntimeError(
                     "the {} profile for algorithm '{}' for {} is expected to "
-                    "be a 'numpy.float64', but it is a '{}'".format(
+                    "be a scalar number ('numbers.Number'), but it is a '{}'".format(
                             profileName,
                             al.getInternalName(),
                             _ERROR_WORDS[context],
