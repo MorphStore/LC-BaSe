@@ -183,7 +183,7 @@ def changeDelta(
             outBwHist[_bitwidth(inAvgBreakDelta) - 1] += inCountBreaks
         outBwHist = list(map(lambda x: x / inCountValues2, outBwHist))
     else:
-        inAvgAbsDelta = (inMax - inMin) / 3
+        inAvgAbsDelta = int(round((inMax - inMin) / 3))
         outBwHist[_bitwidth(inAvgAbsDelta) - 1] += 0.5
         outBwHist[_bitwidth(2 ** cm.UNCOMPR_BW - 1 - inAvgAbsDelta) - 1] += 0.5
     return outCountValues, outBwHist, outIsSorted
